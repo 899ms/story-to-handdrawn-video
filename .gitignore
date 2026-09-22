@@ -19,3 +19,7 @@ uploaded-pages.json
 .story-video/
 .dao/
 .media/
+
+# Independent public gallery deployment
+site-dist/
+.vercel/

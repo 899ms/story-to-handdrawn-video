@@ -27,6 +27,7 @@
     "check:types": "tsc --noEmit",
     "check:storyboard": "node scripts/validate-storyboard.mjs storyboard.json storyboard.uploaded.json",
     "styles:build": "node scripts/build-style-library.mjs && node scripts/build-style-gallery.mjs",
+    "site:build": "node scripts/build-style-site.mjs",
     "style:reference": "node scripts/reference-style.mjs",
     "check:styles": "node scripts/build-style-library.mjs --check && node scripts/build-style-gallery.mjs --check",
     "test": "node --test tests/*.test.mjs",

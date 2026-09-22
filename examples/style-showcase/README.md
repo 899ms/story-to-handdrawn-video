@@ -1,8 +1,10 @@
 # 75 种风格 · 45 秒翻书演示
 
-[观看或下载配乐视频](https://github.com/gnipbao/story-to-handdrawn-video/raw/refs/heads/main/examples/style-showcase/handdrawn-styles-75-page-flip-45s-bgm.mp4)
+https://github.com/user-attachments/assets/9c7ebd73-16fe-4428-8d2c-99006469b201
 
-![右下角卷页示意](poster.png)
+[下载 1080p 配乐视频](https://github.com/gnipbao/story-to-handdrawn-video/raw/refs/heads/main/examples/style-showcase/handdrawn-styles-75-page-flip-45s-bgm.mp4)
+
+上方为 720×960 轻量预览，保留完整 45 秒内容和配乐。下载文件为 1080×1440 原片。
 
 选用项目统一生成的“老人和小孩牵手过石拱桥”配图，75 个不同风格覆盖全部 11 类，按画材交错排列。原图完整置入，右下角卷页露出下一张图片；平均约 0.6 秒一页，首尾稍作停留。
 
