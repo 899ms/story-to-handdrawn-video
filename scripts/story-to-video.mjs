@@ -1,11 +1,13 @@
-import {execFileSync, spawnSync} from 'node:child_process';
+import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {homedir} from 'node:os';
 import {dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-import {resolveStyle} from './handdrawn-style-library.mjs';
+import {resolveStyle, resolvePalette} from './handdrawn-style-library.mjs';
+
+import {processPage} from './page-assets.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -40,11 +42,15 @@ const sourceText = args.input
   ? readFileSync(resolve(root, String(args.input)), 'utf8')
   : String(args.text);
 const title = String(args.title || '手绘故事');
-const selectedStyle = resolveStyle(root, args.style);
+const selectedStyle = resolveStyle(root, args.style, {profile: args['style-profile']});
+const selectedPalette = resolvePalette(root, args.palette);
+if (selectedPalette) {
+  selectedStyle.color_hint = `Explicit palette override (supersedes recipe and reference colors only, preserving medium and value hierarchy): ${selectedPalette.prompt}`;
+}
 const styleReferencePaths = selectedStyle.references.map(
   (reference) => reference.absolute_path,
 );
-const textMode = String(args['text-mode'] || 'font');
+const textMode = String(args['text-mode'] || 'image2');
 const visualPlanPath = args['visual-plan']
   ? resolve(root, String(args['visual-plan']))
   : null;
@@ -54,6 +60,8 @@ const visualPlan = visualPlanPath
 const generator = String(args.generator || 'codex');
 const transition = String(args.transition || 'cut');
 const transitionSec = Number(args['transition-sec'] || 0.7);
+const paperFlip = transition === 'page-flip';
+if (paperFlip && textMode === 'font') throw new Error('Page-flip requires generated handwritten captions (--text-mode image2) so the complete master can be preserved');
 const shouldGenerate = args.generate === true;
 const shouldGenerateWithApi = shouldGenerate && generator === 'api';
 const shouldPrepareCodex = shouldGenerate && generator === 'codex';
@@ -196,7 +204,7 @@ const durationFor = (caption) => {
   return Number(Math.min(6.2, Math.max(4.4, 3.8 + lineCount * 0.48 + characterCount * 0.035)).toFixed(1));
 };
 
-const styleLock = selectedStyle.prompt;
+const styleLock = selectedStyle.prompt + (selectedPalette ? `\n${selectedStyle.color_hint}` : '');
 const styleFingerprint = createHash('sha256');
 styleFingerprint.update(
   JSON.stringify({
@@ -229,7 +237,7 @@ const safeTitle =
     .replace(/^-+|-+$/g, '')
     .slice(0, 32) || 'story';
 const hashInput = [
-  generator === 'codex' ? 'codex-character-sheet-v4' : 'api-v2',
+  generator === 'codex' ? 'codex-shared-pages-v5' : 'api-shared-pages-v3',
   styleVersion,
   title,
   textMode,
@@ -242,7 +250,7 @@ const hashInput = [
 const storyHash = createHash('sha256').update(hashInput).digest('hex').slice(0, 8);
 const assetSet = `${safeTitle}-${storyHash}`;
 
-const generatedRoot = generator === 'codex' ? `generated/codex/${assetSet}` : 'generated/auto';
+const generatedRoot = `generated/${generator === 'codex' ? 'codex' : 'api'}/${assetSet}`;
 const promptDir = resolve(root, 'prompts', generatedRoot);
 const assetDir = resolve(root, 'public/assets', generatedRoot);
 mkdirSync(promptDir, {recursive: true});
@@ -295,44 +303,6 @@ const characterReferenceBrief = fixedReferenceLegend
 const illustrationBackground = selectedStyle.is_default
   ? 'pure white digital paper'
   : 'a clean, light, style-appropriate paper or background surface';
-
-const captionCropHeight = 342;
-const captionScanHeight = 400;
-
-const detectCaptionCropY = (masterPath) => {
-  const detection = spawnSync(
-    'ffmpeg',
-    [
-      '-hide_banner',
-      '-loglevel',
-      'verbose',
-      '-loop',
-      '1',
-      '-i',
-      masterPath,
-      '-vf',
-      `crop=1024:${captionScanHeight}:0:0,negate,format=gray,lut=y='if(gt(val,80),255,0)',cropdetect=limit=0.1:round=2:reset=0`,
-      '-frames:v',
-      '3',
-      '-f',
-      'null',
-      '-',
-    ],
-    {cwd: root, encoding: 'utf8'},
-  );
-  const log = `${detection.stdout || ''}\n${detection.stderr || ''}`;
-  const matches = [...log.matchAll(/crop=(\d+):(\d+):(\d+):(\d+)/g)];
-  const last = matches.at(-1);
-  if (detection.status !== 0 || !last) {
-    console.warn(`Could not detect caption bounds for ${masterPath}; using top-aligned crop`);
-    return 0;
-  }
-
-  const contentHeight = Number(last[2]);
-  const contentY = Number(last[4]);
-  const centeredY = Math.round(contentY + contentHeight / 2 - captionCropHeight / 2);
-  return Math.max(0, Math.min(captionScanHeight - captionCropHeight, centeredY));
-};
 
 let previousColor = null;
 const scenes = [];
@@ -424,63 +394,10 @@ Constraints: non-graphic, emotionally restrained storytelling; no blood, wounds,
       size: masterSize,
       out: absoluteAsset(masterName),
     });
-    if (usesImage2Text) {
-      const captionCropY = detectCaptionCropY(absoluteAsset(masterName));
-      execFileSync(
-        'ffmpeg',
-        [
-          '-hide_banner',
-          '-loglevel',
-          'error',
-          '-i',
-          absoluteAsset(masterName),
-          '-vf',
-          `crop=1024:${captionCropHeight}:0:${captionCropY},scale=1536:512:flags=lanczos`,
-          '-frames:v',
-          '1',
-          '-y',
-          absoluteAsset(textName),
-        ],
-        {cwd: root, stdio: 'inherit'},
-      );
-    }
-    execFileSync(
-      'ffmpeg',
-      [
-        '-hide_banner',
-        '-loglevel',
-        'error',
-        '-i',
-        absoluteAsset(masterName),
-        '-vf',
-        usesImage2Text
-          ? 'crop=1024:1024:0:512,format=gray,eq=contrast=1.18:brightness=0.035,unsharp=5:5:0.55:5:5:0'
-          : 'format=gray,eq=contrast=1.18:brightness=0.035,unsharp=5:5:0.55:5:5:0',
-        '-frames:v',
-        '1',
-        '-y',
-        absoluteAsset(bwName),
-      ],
-      {cwd: root, stdio: 'inherit'},
-    );
-    execFileSync(
-      'ffmpeg',
-      [
-        '-hide_banner',
-        '-loglevel',
-        'error',
-        '-i',
-        absoluteAsset(masterName),
-        '-vf',
-        usesImage2Text ? 'crop=1024:1024:0:512' : 'null',
-        '-frames:v',
-        '1',
-        '-y',
-        absoluteAsset(colorName),
-      ],
-      {cwd: root, stdio: 'inherit'},
-    );
-    previousColor = absoluteAsset(colorName);
+    processPage({input: absoluteAsset(masterName), masterPath: absoluteAsset(masterName),
+      textPath: absoluteAsset(textName), bwPath: absoluteAsset(bwName), colorPath: absoluteAsset(colorName),
+      transition, generatedTextMode: textMode});
+    previousColor = absoluteAsset(paperFlip ? masterName : colorName);
   }
 
   if (generator === 'codex') {
@@ -491,6 +408,8 @@ Constraints: non-graphic, emotionally restrained storytelling; no blood, wounds,
     codexJobs.push({
       id,
       role: 'scene',
+      expected_caption: caption,
+      size: masterSize,
       prompt_file: masterPrompt,
       prompt: readFileSync(masterPrompt, 'utf8').trim(),
       output_master: absoluteAsset(masterName),
@@ -502,18 +421,18 @@ Constraints: non-graphic, emotionally restrained storytelling; no blood, wounds,
   scenes.push({
     id,
     duration_sec: durationFor(caption),
-    text: caption,
+    text: paperFlip ? '' : caption,
     narration: text,
     visual: `使用“${selectedStyle.name_zh}”绘制一个单一、清楚、可画的故事场景：${text}`,
-    shot: 'story_beat',
-    layers: ['text', 'bw_full', 'color'],
+    shot: paperFlip ? 'full_generated_page' : 'story_beat',
+    layers: paperFlip ? ['color'] : ['text', 'bw_full', 'color'],
     color_hint: selectedStyle.color_hint,
     detail_hint: null,
     assets: {
-      text_image: usesImage2Text ? projectAsset(textName) : null,
-      bw: projectAsset(bwName),
+      text_image: !paperFlip && usesImage2Text ? projectAsset(textName) : null,
+      bw: paperFlip ? null : projectAsset(bwName),
       detail: null,
-      color: projectAsset(colorName),
+      color: projectAsset(paperFlip ? masterName : colorName),
     },
   });
 }
@@ -533,6 +452,8 @@ const storyboard = {
     fps: 30,
     transition,
     transition_sec: transitionSec,
+    text_mode: textMode,
+    palette_id: selectedPalette?.id || null,
     style_id: selectedStyle.id,
     style_name: selectedStyle.name_zh,
     style_library_version: selectedStyle.library_version,
@@ -559,7 +480,10 @@ if (generator === 'codex') {
     manifestPath,
     `${JSON.stringify(
       {
-        version: 1,
+        version: 2,
+        transition,
+        palette_id: selectedPalette?.id || null,
+        caption_review: 'Inspect generated Chinese verbatim before import; correct the master with the image tool, never silently replace handwriting with a font.',
         generator: 'codex-image2',
         style_library: selectedStyle.library_path,
         style_library_version: selectedStyle.library_version,
@@ -582,7 +506,7 @@ if (generator === 'codex') {
 }
 
 console.log(
-  `Style ${selectedStyle.order}: ${selectedStyle.name_zh} (${selectedStyle.id})\n` +
+  `Style ${selectedStyle.order || selectedStyle.id}: ${selectedStyle.name_zh} (${selectedStyle.id})\n` +
     `Prepared ${scenes.length} scenes → ${outputPath}\n` +
     `Prompts → ${promptDir}\n` +
     (shouldGenerateWithApi

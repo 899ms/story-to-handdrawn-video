@@ -1,7 +1,5 @@
-import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {
-  copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -9,6 +7,7 @@ import {
 } from 'node:fs';
 import {dirname, extname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {processPage} from './page-assets.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -107,11 +106,12 @@ const safeTitle =
 const batchHash = createHash('sha256')
   .update(
     [
-      'uploaded-pages-v6',
+      'shared-page-assets-v1',
       layout,
       transition,
       paperFlip ? String(transitionSec) : 'no-transition-overlap',
       String(pageDuration),
+      JSON.stringify([...splitOverrides]),
       ...inputs.map((item) => item.hash),
     ].join('\n'),
   )
@@ -122,173 +122,12 @@ const generatedRoot = `generated/uploads/${assetSet}`;
 const outputDir = resolve(root, 'public/assets', generatedRoot);
 mkdirSync(outputDir, {recursive: true});
 
-const dimensionsFor = (path) => {
-  const output = execFileSync(
-    'ffprobe',
-    [
-      '-v',
-      'error',
-      '-select_streams',
-      'v:0',
-      '-show_entries',
-      'stream=width,height',
-      '-of',
-      'json',
-      path,
-    ],
-    {cwd: root, encoding: 'utf8'},
-  );
-  const stream = JSON.parse(output).streams?.[0];
-  if (!stream?.width || !stream?.height) {
-    throw new Error(`Could not read image dimensions: ${path}`);
-  }
-  return {width: Number(stream.width), height: Number(stream.height)};
-};
-
-const analyzeCompositeLayout = (path, width, height) => {
-  const previewWidth = 256;
-  const pixels = execFileSync(
-    'ffmpeg',
-    [
-      '-hide_banner',
-      '-loglevel',
-      'error',
-      '-i',
-      path,
-      '-vf',
-      `scale=${previewWidth}:-2:flags=area,format=gray`,
-      '-frames:v',
-      '1',
-      '-f',
-      'rawvideo',
-      '-pix_fmt',
-      'gray',
-      '-',
-    ],
-    {cwd: root, maxBuffer: 8 * 1024 * 1024},
-  );
-  const previewHeight = Math.floor(pixels.length / previewWidth);
-  const rowInk = Array.from({length: previewHeight}, (_, y) => {
-    let ink = 0;
-    const offset = y * previewWidth;
-    for (let x = 0; x < previewWidth; x += 1) {
-      if (pixels[offset + x] < 238) ink += 1;
-    }
-    return ink / previewWidth;
-  });
-  const smoothed = rowInk.map((_, y) => {
-    let total = 0;
-    let count = 0;
-    for (let offset = -2; offset <= 2; offset += 1) {
-      const row = y + offset;
-      if (row >= 0 && row < previewHeight) {
-        total += rowInk[row];
-        count += 1;
-      }
-    }
-    return total / count;
-  });
-
-  const searchStart = Math.round(previewHeight * 0.22);
-  const searchEnd = Math.round(previewHeight * 0.52);
-  const runs = [];
-  let runStart = null;
-  for (let y = searchStart; y <= searchEnd; y += 1) {
-    if (smoothed[y] < 0.012 && runStart === null) runStart = y;
-    const closes = smoothed[y] >= 0.012 || y === searchEnd;
-    if (closes && runStart !== null) {
-      const end = smoothed[y] >= 0.012 ? y - 1 : y;
-      runs.push({start: runStart, end, length: end - runStart + 1});
-      runStart = null;
-    }
-  }
-  runs.sort((a, b) => b.length - a.length || a.start - b.start);
-  const bestRun = runs[0] || null;
-  let splitPreview = bestRun
-    ? Math.round((bestRun.start + bestRun.end) / 2)
-    : searchStart;
-  if (!bestRun) {
-    for (let y = searchStart; y <= searchEnd; y += 1) {
-      if (smoothed[y] < smoothed[splitPreview]) splitPreview = y;
-    }
-  }
-
-  // Some uploaded diary-comic pages leave a wide white gutter immediately
-  // after a short one-line caption. Clamping the split to 27% pushed the crop
-  // down into roofs, hair, or a third caption line on those pages. The search
-  // already starts at 22%, so allow the detected gutter itself to determine
-  // the boundary while retaining the existing upper safety limit.
-  const minSplit = searchStart;
-  const maxSplit = Math.round(previewHeight * 0.5);
-  splitPreview = Math.max(minSplit, Math.min(maxSplit, splitPreview));
-
-  const contentRows = [];
-  for (let y = 0; y < splitPreview; y += 1) {
-    if (rowInk[y] > 0.012) contentRows.push(y);
-  }
-  const scaleY = height / previewHeight;
-  const detectedCaption =
-    contentRows.length > Math.max(4, previewHeight * 0.02) &&
-    Boolean(bestRun && bestRun.length >= previewHeight * 0.012);
-  const topContent = contentRows[0] ?? 0;
-  const bottomContent = contentRows.at(-1) ?? splitPreview;
-  const padding = Math.max(8, Math.round(previewHeight * 0.018));
-  const captionY = Math.max(0, Math.round((topContent - padding) * scaleY));
-  const captionBottom = Math.min(
-    height,
-    Math.round((bottomContent + padding) * scaleY),
-  );
-
-  return {
-    hasCaption: detectedCaption,
-    splitY: Math.round(splitPreview * scaleY),
-    captionY,
-    captionH: Math.max(24, captionBottom - captionY),
-  };
-};
-
-const runFfmpeg = (input, filter, output) => {
-  execFileSync(
-    'ffmpeg',
-    [
-      '-hide_banner',
-      '-loglevel',
-      'error',
-      '-i',
-      input,
-      '-vf',
-      filter,
-      '-frames:v',
-      '1',
-      '-y',
-      output,
-    ],
-    {cwd: root, stdio: 'inherit'},
-  );
-};
-
 const scenes = [];
 const manifestPages = [];
 
 for (let index = 0; index < inputs.length; index += 1) {
   const input = inputs[index];
   const id = String(index + 1).padStart(2, '0');
-  const {width, height} = dimensionsFor(input.path);
-  const detection = analyzeCompositeLayout(input.path, width, height);
-  const hasCaption =
-    layout === 'composite' || (layout === 'auto' && detection.hasCaption);
-  const splitOverride = splitOverrides.get(id);
-  if (
-    splitOverride !== undefined &&
-    (splitOverride < Math.round(height * 0.16) ||
-      splitOverride > Math.round(height * 0.62))
-  ) {
-    throw new Error(`--split-y for scene ${id} is outside the safe range`);
-  }
-  const splitY = hasCaption ? splitOverride ?? detection.splitY : 0;
-  const captionY = splitOverride === undefined ? detection.captionY : 0;
-  const captionH =
-    splitOverride === undefined ? detection.captionH : splitOverride;
   const extension = extname(input.path).toLowerCase() || '.jpg';
   const masterName = `${id}_master${extension}`;
   const textName = `${id}_text.png`;
@@ -299,27 +138,10 @@ for (let index = 0; index < inputs.length; index += 1) {
   const colorPath = resolve(outputDir, colorName);
   const bwPath = resolve(outputDir, bwName);
 
-  copyFileSync(input.path, masterPath);
-
-  if (!paperFlip && hasCaption) {
-    runFfmpeg(
-      input.path,
-      `crop=${width}:${captionH}:0:${captionY},scale=1536:512:force_original_aspect_ratio=decrease:flags=lanczos,pad=1536:512:(ow-iw)/2:(oh-ih)/2:color=white`,
-      textPath,
-    );
-  }
-
-  if (!paperFlip) {
-    const artFilter = hasCaption
-      ? `crop=${width}:${height - splitY}:0:${splitY},scale=1024:1024:force_original_aspect_ratio=decrease:flags=lanczos,pad=1024:1024:(ow-iw)/2:(oh-ih)/2:color=white`
-      : 'scale=1024:1024:force_original_aspect_ratio=decrease:flags=lanczos,pad=1024:1024:(ow-iw)/2:(oh-ih)/2:color=white';
-    runFfmpeg(input.path, artFilter, colorPath);
-    runFfmpeg(
-      colorPath,
-      'format=gray,eq=contrast=1.18:brightness=0.035,unsharp=5:5:0.55:5:5:0',
-      bwPath,
-    );
-  }
+  const {width, height, hasCaption, splitY, captionY, captionH} = processPage({
+    input: input.path, masterPath, textPath, colorPath, bwPath,
+    transition, layout, splitOverride: splitOverrides.get(id),
+  });
 
   const asset = (name) => `assets/${generatedRoot}/${name}`;
   scenes.push({

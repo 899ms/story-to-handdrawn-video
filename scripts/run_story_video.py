@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -40,14 +41,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--title", default="手绘故事")
     parser.add_argument(
         "--style",
-        default="colored-pencil-diary",
-        help="Built-in style id, number, Chinese name, or alias",
+        default=None,
+        help="Built-in or saved style id, number, Chinese name, or alias",
     )
     parser.add_argument(
         "--list-styles",
         action="store_true",
         help="Print the built-in style catalog and exit",
     )
+    parser.add_argument("--all-styles", action="store_true")
+    parser.add_argument("--asset-type", choices=("style", "palette", "all"), default="style")
+    parser.add_argument("--category")
+    parser.add_argument("--query")
+    parser.add_argument("--json", action="store_true", help="Machine-readable style menu")
+    parser.add_argument("--palette", help="Theme palette id (C-01 through C-30) or name")
+    parser.add_argument("--style-profile", type=Path, help="Agent-analyzed reference style JSON")
+    parser.add_argument("--style-reference", action="append", type=Path, default=[], help="Reference image for automatic agent visual analysis (repeatable)")
+    parser.add_argument("--save-style", help="Save the analyzed profile under this reusable id")
     parser.add_argument("--character-lock")
     parser.add_argument("--visual-plan", type=Path)
     parser.add_argument(
@@ -57,7 +67,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--generator", choices=("codex", "api"), default="codex")
     parser.add_argument("--manifest", type=Path)
-    parser.add_argument("--text-mode", choices=("image2", "font"), default="font")
+    parser.add_argument("--text-mode", choices=("image2", "font"), default="image2")
     parser.add_argument("--transition", choices=("cut", "page-flip"), default="cut")
     parser.add_argument("--transition-sec", type=float, default=0.7)
     parser.add_argument("--page-duration", type=float, default=4.4)
@@ -95,8 +105,42 @@ def main() -> None:
     require_project(project)
 
     if args.list_styles:
-        run(["npm", "run", "styles"], project)
+        command = ["node", "scripts/list-handdrawn-styles.mjs", "--type", args.asset_type]
+        if args.all_styles:
+            command.append("--all")
+        for flag, value in [("--category", args.category), ("--query", args.query)]:
+            if value:
+                command += [flag, value]
+        if args.json:
+            command.append("--json")
+        run(command, project)
         return
+
+    if args.images and any([args.style, args.style_reference, args.style_profile, args.palette, args.save_style]):
+        raise SystemExit("--images preserves uploaded pages. Use --text/--input with --style-reference to generate new scenes in a reference style.")
+    if args.style_reference and args.style_profile:
+        profile_path = args.style_profile.expanduser().resolve()
+        profile = json.loads(profile_path.read_text(encoding="utf-8"))
+        declared = {(profile_path.parent / item["path"]).resolve() for item in profile.get("reference_images", [])}
+        supplied = {image.expanduser().resolve() for image in args.style_reference}
+        if declared != supplied:
+            raise SystemExit("Reference images differ from the analyzed profile; re-analyze before generating")
+    if args.style_reference and not args.style_profile:
+        command = ["node", "scripts/reference-style.mjs", "prepare"]
+        for image in args.style_reference:
+            command += ["--image", str(image.expanduser().resolve())]
+        run(command, project)
+        print("Visual analysis requested. The agent should inspect the images, write output_profile, then repeat this command with --style-profile. This is not a generated video.")
+        return
+    if args.style_profile and args.style:
+        raise SystemExit("Use --style-profile or --style, not both")
+    if args.save_style:
+        if not args.style_profile:
+            raise SystemExit("--save-style requires an analyzed --style-profile")
+        run(["node", "scripts/reference-style.mjs", "save", "--profile",
+             str(args.style_profile.expanduser().resolve()), "--id", args.save_style], project)
+        if not args.input and not args.text and not args.images:
+            return
 
     if args.images:
         if args.mode == "import":
@@ -167,8 +211,6 @@ def main() -> None:
     command += [
         "--title",
         args.title,
-        "--style",
-        args.style,
         "--text-mode",
         args.text_mode,
         "--generator",
@@ -178,6 +220,12 @@ def main() -> None:
         "--transition-sec",
         str(args.transition_sec),
     ]
+    if args.style:
+        command += ["--style", args.style]
+    if args.style_profile:
+        command += ["--style-profile", str(args.style_profile.expanduser().resolve())]
+    if args.palette:
+        command += ["--palette", args.palette]
     if args.character_lock:
         command += ["--character-lock", args.character_lock]
     if args.visual_plan:

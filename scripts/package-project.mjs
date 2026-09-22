@@ -14,6 +14,8 @@ const stagingProject = resolve(stagingRoot, folderName);
 
 const entries = [
   '.gitignore',
+  'LICENSE',
+  'CHANGELOG.md',
   'DESIGN.md',
   'README.md',
   'examples',
@@ -27,6 +29,7 @@ const entries = [
   'references',
   'remotion.config.ts',
   'scripts',
+  'tests',
   'skill-package',
   'src',
   'storyboard.json',

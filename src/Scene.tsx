@@ -16,7 +16,7 @@ export const Scene: React.FC<{scene: SceneData}> = ({scene}) => {
   const speedMode = !has('detail');
   const staticColor = has('color') && !has('bw_full') && !has('detail');
   const fullUploadedPage =
-    scene.shot === 'full_uploaded_page' && scene.assets.color;
+    ['full_uploaded_page', 'full_generated_page'].includes(scene.shot) && scene.assets.color;
 
   if (fullUploadedPage) {
     return (

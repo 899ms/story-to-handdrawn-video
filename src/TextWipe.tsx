@@ -10,7 +10,7 @@ type TextWipeProps = {
 };
 
 const textStyle = (fontSize: number): CSSProperties => ({
-  fontFamily: 'OriginalDiaryHand, STKaiti, serif',
+  fontFamily: 'system-ui, PingFang SC, Microsoft YaHei, sans-serif',
   fontSize,
   fontWeight: 400,
   lineHeight: 1.34,

@@ -1,351 +1,157 @@
 # story-to-handdrawn-video
 
-[中文](#中文) | [English](#english)
+把中文故事或有序图片，做成 **3:4 竖屏、静音、可后期配音的手绘动画**。
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+默认由 Agent 的生图工具同时绘制插画和准确的手写中文字，再制作「文字 → 黑白画稿 → 彩色插画」动画；也可以保留整页，使用右下角卷页翻书效果。
 
----
+**[浏览 327 项本地资产](references/style-library.html)** · [安装与使用](#快速开始) · [参考图风格](#用参考图生成并收藏风格) · [配图回测](examples/standard-preview-report.md) · [视频回测](examples/replay-report.md) · [English](#english)
 
-## 中文
+## 45 秒翻书演示
 
-把中文故事文案或一组有序的手绘图片,转换成 3:4 竖屏**手绘故事动画**。内置 20 种可切换风格,包含彩铅日记、儿童蜡笔、极简线条、水墨、水彩、水粉绘本、Zine 拼贴、白板讲解与木刻社论等视觉家族;未指定时继续使用已确认并锁定的「彩铅日记漫画」默认风格。支持手写体字幕、从左到右的「文字 → 黑白画稿 → 彩色插画」揭示、可选右下角卷页翻书转场和安全不裁剪构图。基于 [Remotion](https://www.remotion.dev/),默认输出无配音、无音乐的 H.264 画面轨,方便后期配音。
+[![75 种手绘风格的翻书演示](examples/style-showcase/poster.png)](https://github.com/gnipbao/story-to-handdrawn-video/raw/refs/heads/main/examples/style-showcase/handdrawn-styles-75-page-flip-45s-bgm.mp4)
 
-本仓库包含两部分:
+**[观看 / 下载配乐演示（MP4，约 20 MB）](https://github.com/gnipbao/story-to-handdrawn-video/raw/refs/heads/main/examples/style-showcase/handdrawn-styles-75-page-flip-45s-bgm.mp4)** · [风格顺序与制作说明](examples/style-showcase/README.md)
 
-- **渲染器项目**(根目录):Remotion 工程,负责实际的分镜、动效和渲染。
-- **Codex / Agent Skill**(`skill-package/`):可分发的 Skill,装进 Codex 等 Agent 后用自然语言驱动渲染器,无需手动跑脚本。
+从内置资产中选择 75 种风格，覆盖 11 类，按不同画材交错安排，以右下角卷页展示同一个过桥场景。成片为 45 秒、1080×1440、30 fps；BGM 在静音成片完成后添加，音乐署名见 [演示许可](examples/style-showcase/BGM_CREDITS.md)。
 
-### 功能特性
+## 先选一个画风
 
-- 中文故事自动分句和动态分镜,保留原文措辞
-- 上传漫画页或完整图片,保持原顺序和构图
-- 自动拆分上方文字区与下方插画区
-- 本地生成与彩色插画对齐的黑白层
-- `文字 → 黑白画稿 → 彩色插画` 从左到右揭示
-- 可选右下角卷页翻书转场(纸背保留淡化的原页纹理)
-- 1080×1440 正式渲染和 720×960 快速预览
-- Codex Image2 工作流,以及显式选择的 OpenAI API 工作流
-- 20 种内置手绘风格,支持编号、英文 id、中文名和别名选择
-- 每种风格附带固定示例图,并提供统一场景的风格总览
+内置 **297 条画风配方 + 30 种主题配色**，全部附本地示意图。默认展示 30 种常用精选，可按画材、类型、名称或编号筛选，点击图片查看大图。下载仓库后直接打开 `references/style-library.html`，无需启动服务或联网。
 
-### 环境要求
+| 彩铅日记漫画 · 默认 | 四季旅行水彩 · HS-128 | 肌理剪纸拼贴 · HS-225 | 主题配色 · C-01 |
+| :---: | :---: | :---: | :---: |
+| [![彩铅日记漫画](references/style-examples/standard/colored-pencil-diary.png)](references/style-examples/standard/colored-pencil-diary.png) | [![四季旅行水彩](references/style-examples/standard/hs-128.png)](references/style-examples/standard/hs-128.png) | [![肌理剪纸拼贴](references/style-examples/standard/hs-225.png)](references/style-examples/standard/hs-225.png) | [![C-01 配色示意](references/style-examples/standard/c-01.png)](references/style-examples/standard/c-01.png) |
 
-- Node.js 20 或更高版本
-- Python 3.10 或更高版本
-- FFmpeg,且 `ffmpeg`、`ffprobe` 可从终端调用
-- npm
-- Google Chrome,或由 Remotion 管理的兼容浏览器
-- 支持 Skill 的 Agent 运行时(Codex、Claude Code、Kimi Code 等)
+所有配图使用同一个标准场景：**老人和小孩牵手走过石拱桥**。统一人物关系、左右位置、石桥与留白，画材、造型、细节和配色随风格变化，方便直接比较。30 种精选按常见用途选编，全部画风与配色可在 [资产库说明](references/style-library-guide.md) 中查询。
 
-### 安装
+## 快速开始
 
-1. 准备渲染器项目:
-
-```bash
-git clone https://github.com/gnipbao/story-to-handdrawn-video.git
-cd story-to-handdrawn-video
-npm ci
-npm run check      # TypeScript 检查 + 分镜结构校验,不访问网络
-```
-
-2. 把 Skill 装进 Agent 的 skills 目录:
-
-```bash
-# Codex
-cp -R skill-package/story-to-handdrawn-video ~/.codex/skills/
-
-# Claude Code / 通用 Agent
-cp -R skill-package/story-to-handdrawn-video ~/.claude/skills/
-
-# Kimi Code
-cp -R skill-package/story-to-handdrawn-video ~/.agents/skills/
-```
-
-3. 告诉 Skill 渲染器项目在哪里(在渲染器项目目录内运行 Agent 时可省略):
-
-```bash
-export STORY_VIDEO_PROJECT=/absolute/path/to/story-to-handdrawn-video
-```
-
-### 使用方法(Codex Skill 示例)
-
-装好 Skill 后,全部通过自然语言驱动,分句、分镜、图片生成、导入、渲染由 Agent 按 Skill 约定自动完成。
-
-**故事文本 → 手绘动画**(Skill 的默认提示词):
-
-```text
-使用 $story-to-handdrawn-video 把这段故事生成可后期配音的手绘动画。
-
-<在这里粘贴故事文本>
-```
-
-也可以把故事放在 UTF-8 文本文件里:
-
-```text
-使用 $story-to-handdrawn-video 把 /absolute/story.txt 生成手绘动画,标题叫「纸上的夏天」。
-```
-
-**上传图片 → 手绘动画**(图片按播放顺序给出):
-
-```text
-使用 $story-to-handdrawn-video 把这几张图片按顺序生成手绘动画:
-/absolute/01.jpg /absolute/02.jpg /absolute/03.jpg
-```
-
-**翻书效果**(保留原始页面,从右下角卷页):
-
-```text
-使用 $story-to-handdrawn-video 把这些图片做成翻书效果的手绘动画:
-/absolute/01.jpg /absolute/02.jpg
-```
-
-**先出预览**(720×960,确认效果后再出正式版):
-
-```text
-使用 $story-to-handdrawn-video 先给这个故事生成一个预览版。
-```
-
-使用建议:
-
-- 故事文本默认一个完整句子一个节拍;想控制节奏,直接在故事里按句分行即可。
-- 遇到时间跳跃、指代不明、医疗场景或年龄敏感角色时,建议先让 Agent 给出视觉规划(两位场景编号为键的 JSON),确认后再生成。
-- 默认使用 Codex Image2 生成图片;只有明确要求时才会走 OpenAI API(需 `OPENAI_API_KEY`)。
-- 输出是静音画面轨,配音和 BGM 属于后期工作。
-
-### 20 种内置手绘风格
-
-所有示例使用同一组人物、动作和构图生成,便于直接比较画材、线条、色板与完成度。示例图只作为**风格证据**,生成故事时仍由原文和角色锁定控制人物、场景与动作。
-
-![20 种手绘风格总览](references/style-examples/handdrawn-style-library-contact-sheet.jpg)
-
-| # | 示例 | Style id | 中文名 | 视觉特征 | 推荐题材 |
-|---:|:---:|---|---|---|---|
-| 1 | <a href="references/style-examples/01-colored-pencil-diary.png"><img src="references/style-examples/01-colored-pencil-diary.png" width="120" alt="彩铅日记漫画示例"></a> | `colored-pencil-diary` | 彩铅日记漫画（默认） | 笨拙黑色毡尖笔轮廓、低饱和彩铅乱涂、大留白 | 家庭、生活、纪实情感 |
-| 2 | <a href="references/style-examples/02-minimal-line-explainer.png"><img src="references/style-examples/02-minimal-line-explainer.png" width="120" alt="极简黑白线条讲解示例"></a> | `minimal-line-explainer` | 极简黑白线条讲解 | 米白纸、细黑单线、火柴人与极少道具 | 科普、流程、观点 |
-| 3 | <a href="references/style-examples/03-kid-crayon.png"><img src="references/style-examples/03-kid-crayon.png" width="120" alt="五岁儿童蜡笔坏画示例"></a> | `kid-crayon` | 五岁儿童蜡笔坏画 | 歪扭比例、线条不闭合、明亮蜡笔涂出边界 | 童年、亲子、轻喜剧 |
-| 4 | <a href="references/style-examples/04-rawkid-crayon.png"><img src="references/style-examples/04-rawkid-crayon.png" width="120" alt="潦草家庭投稿蜡笔示例"></a> | `rawkid-crayon` | 潦草家庭投稿蜡笔 | 家长歪线稿、孩子粗乱上色、大片露白 | 家庭连载、温暖日常 |
-| 5 | <a href="references/style-examples/05-bean-doodle-infographic.png"><img src="references/style-examples/05-bean-doodle-infographic.png" width="120" alt="小豆人涂鸦信息图示例"></a> | `bean-doodle-infographic` | 小豆人涂鸦信息图 | 黑色圆豆人、白点眼、单一橙色强调 | 步骤、清单、知识卡 |
-| 6 | <a href="references/style-examples/06-ms-paint-bad-doodle.png"><img src="references/style-examples/06-ms-paint-bad-doodle.png" width="120" alt="鼠标烂涂鸦示例"></a> | `ms-paint-bad-doodle` | 鼠标烂涂鸦 | 锯齿鼠标线、荒谬比例、粗糙纯色块 | 吐槽、反转、荒诞 |
-| 7 | <a href="references/style-examples/07-ballpoint-scribble.png"><img src="references/style-examples/07-ballpoint-scribble.png" width="120" alt="圆珠笔缠绕线速写示例"></a> | `ballpoint-scribble` | 圆珠笔缠绕线速写 | 单色圆珠笔缠绕线、疏密塑形、现场手稿感 | 肖像、动物、独白 |
-| 8 | <a href="references/style-examples/08-real-crayon-paper.png"><img src="references/style-examples/08-real-crayon-paper.png" width="120" alt="真实蜡笔纸实拍示例"></a> | `real-crayon-paper` | 真实蜡笔纸实拍 | 可见纸纹、蜡质结块、压力变化与大量漏白 | 儿童视角、成长记录 |
-| 9 | <a href="references/style-examples/09-ink-wash.png"><img src="references/style-examples/09-ink-wash.png" width="120" alt="水墨写意示例"></a> | `ink-wash` | 水墨写意 | 宣纸、浓淡干湿、飞白枯笔与朱红点睛 | 文化、寓言、感悟 |
-| 10 | <a href="references/style-examples/10-emotional-watercolor-sketch.png"><img src="references/style-examples/10-emotional-watercolor-sketch.png" width="120" alt="情绪叙事淡彩速写示例"></a> | `emotional-watercolor-sketch` | 情绪叙事淡彩速写 | 靛蓝松散速写、透明淡彩、单一暖橙焦点 | 回忆、关系、克制纪实 |
-| 11 | <a href="references/style-examples/11-retro-gouache-concept.png"><img src="references/style-examples/11-retro-gouache-concept.png" width="120" alt="中古动画水粉概念稿示例"></a> | `retro-gouache-concept` | 中古动画水粉概念稿 | 奶油纸、水粉大形、橙蓝互补、干刷边缘 | 怀旧、城市、温暖剧情 |
-| 12 | <a href="references/style-examples/12-sunlit-storybook.png"><img src="references/style-examples/12-sunlit-storybook.png" width="120" alt="暖光童画绘本示例"></a> | `sunlit-storybook` | 暖光童画绘本 | 柔软水粉、暖边光、蓬松形状与未完成感 | 治愈、童话、亲情 |
-| 13 | <a href="references/style-examples/13-nordic-gouache-storybook.png"><img src="references/style-examples/13-nordic-gouache-storybook.png" width="120" alt="北欧低饱和水粉绘本示例"></a> | `nordic-gouache-storybook` | 北欧低饱和水粉绘本 | 丹宁蓝与芥末黄、哑光颗粒、安静留白 | 日常、自然、睡前故事 |
-| 14 | <a href="references/style-examples/14-inked-storybook.png"><img src="references/style-examples/14-inked-storybook.png" width="120" alt="墨线淡彩绘本示例"></a> | `inked-storybook` | 墨线淡彩绘本 | 清晰墨线、轻薄水彩、角色表演突出 | 角色、青春、对白 |
-| 15 | <a href="references/style-examples/15-warm-flat-storybook.png"><img src="references/style-examples/15-warm-flat-storybook.png" width="120" alt="暖色几何扁平绘本示例"></a> | `warm-flat-storybook` | 暖色几何扁平绘本 | 简化几何块面、暖色平涂、清楚视觉层级 | 关系、品牌、轻科普 |
-| 16 | <a href="references/style-examples/16-naive-marker-notes.png"><img src="references/style-examples/16-naive-marker-notes.png" width="120" alt="稚拙马克笔笔记示例"></a> | `naive-marker-notes` | 稚拙马克笔笔记 | 粗黑马克笔、荧光重点与随手批注感 | 社媒、观点、年轻化内容 |
-| 17 | <a href="references/style-examples/17-zine-riso-collage.png"><img src="references/style-examples/17-zine-riso-collage.png" width="120" alt="Zine 孔版拼贴示例"></a> | `zine-riso-collage` | Zine 孔版拼贴 | 复印颗粒、撕纸拼贴、有限孔版套色 | 成长、旅行、音乐文化 |
-| 18 | <a href="references/style-examples/18-organic-contour-doodle.png"><img src="references/style-examples/18-organic-contour-doodle.png" width="120" alt="有机轮廓品牌涂鸦示例"></a> | `organic-contour-doodle` | 有机轮廓品牌涂鸦 | 松弛轮廓、温暖点色、生活方式插画感 | 餐饮、生活方式、品牌故事 |
-| 19 | <a href="references/style-examples/19-whiteboard-explainer.png"><img src="references/style-examples/19-whiteboard-explainer.png" width="120" alt="白板讲解动画示例"></a> | `whiteboard-explainer` | 白板讲解动画 | 白底黑线、少量红蓝标记、步骤清晰 | 教程、商业解释、时间线 |
-| 20 | <a href="references/style-examples/20-linocut-editorial.png"><img src="references/style-examples/20-linocut-editorial.png" width="120" alt="粗粝木刻社论插画示例"></a> | `linocut-editorial` | 粗粝木刻社论插画 | 高反差刻痕、套色偏移、纸张颗粒 | 社会议题、历史、寓言 |
-
-查看完整菜单和每张示例图路径:
-
-```bash
-python3 scripts/run_story_video.py --list-styles
-```
-
-选择风格时可使用编号、id、中文名或别名:
-
-```text
-使用 $story-to-handdrawn-video 选择「水墨写意」风格,把这段故事生成静音手绘动画。
-```
-
-```bash
-python3 scripts/run_story_video.py \
-  --input examples/story.txt \
-  --title "纸上的夏天" \
-  --style ink-wash \
-  --mode plan
-```
-
-机器可读配方位于 [references/handdrawn-style-library.json](references/handdrawn-style-library.json)。其中 `contact_sheet` 指向总览图,每种风格的 `example_image` 指向对应示例;来源于 [hand-drawn-styles](https://github.com/threerocks/hand-drawn-styles) 的配方保留 MIT 署名,详见 [references/handdrawn-styles-LICENSE.txt](references/handdrawn-styles-LICENSE.txt)。
-
-### 输出契约
-
-| 输入 | 模式 | 输出路径 |
-| --- | --- | --- |
-| 故事文本 | 正式 | `out/picture_silent.mp4` |
-| 故事文本 | 预览 | `out/picture_silent-preview.mp4` |
-| 上传图片 | 正式 | `out/uploaded_picture_silent.mp4` |
-| 上传图片 | 预览 | `out/uploaded_picture_silent-preview.mp4` |
-
-- 分辨率:正式 1080×1440,预览 720×960
-- 编码:H.264,静音
-
-Skill 的完整行为约定见 [skill-package/story-to-handdrawn-video/SKILL.md](skill-package/story-to-handdrawn-video/SKILL.md)。
-
-### 项目结构
-
-```text
-.
-├── src/                    # Remotion 组件(场景、擦除动效、翻页、缓动)
-├── scripts/                # 渲染器入口与导入/校验/打包脚本(由 Skill 调用)
-├── skill-package/          # 可分发的 Codex / Agent Skill
-├── examples/               # 示例故事文本
-├── references/             # 20 风格配方、默认风格参考板与示例图库
-├── public/                 # 字体与素材(generated/ 为运行时产物)
-├── storyboard.json         # 默认文本故事分镜示例
-├── storyboard.uploaded.json # 上传图片分镜示例
-└── DESIGN.md               # 设计说明
-```
-
-渲染器项目的维护命令:`npm run dev`(Remotion Studio)、`npm run check`(类型与分镜校验)、`npm run build`(生产构建)、`npm run package:share`(生成源码分享包)。
-
-### 字体
-
-项目使用随附的站酷马善政毛笔字体(Ma Shan Zheng),许可证见 [public/fonts/OFL-MaShanZheng.txt](public/fonts/OFL-MaShanZheng.txt)(SIL Open Font License)。
-
-### 贡献
-
-欢迎贡献——请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。注意 `skill-package/` 下的 Skill 契约与 `src/`、`scripts/` 下的渲染器逻辑是核心部分,修改需要充分理由。
-
-### 开源协议
-
-[MIT](LICENSE)
-
----
-
-## English
-
-Convert Chinese story copy — or ordered hand-drawn images — into a 3:4 vertical **hand-drawn story animation**. The project includes 20 selectable visual families spanning colored pencil, kid crayon, minimal line art, ink wash, watercolor, gouache storybooks, zine collage, whiteboard explainers, and linocut editorial illustration. When no style is requested, it preserves the approved and locked colored-pencil diary default. Built on [Remotion](https://www.remotion.dev/); outputs a silent H.264 picture track ready for post-production voiceover.
-
-This repo contains:
-
-- **The renderer project** (root): the Remotion app that storyboards, animates, and renders.
-- **A Codex / agent skill** (`skill-package/`): a distributable skill that drives the renderer with natural language — no scripts to run by hand.
-
-### Requirements
-
-- Node.js 20+, Python 3.10+, npm
-- FFmpeg (`ffmpeg` and `ffprobe` on PATH)
-- Google Chrome or a Remotion-managed compatible browser
-- An agent runtime with skill support (Codex, Claude Code, Kimi Code, …)
-
-### Install
-
-1. Set up the renderer project:
+本仓库同时提供 **Remotion 渲染器**和可安装的 **Agent Skill**。需要 Node.js 20+、Python 3.10+、FFmpeg（含 `ffprobe`）、npm，以及 Chrome 或 Remotion 支持的浏览器。生成新图需要 Agent 可调用的生图工具；“本地工具”表示从当前 Agent 调用，不表示模型离线运行。
 
 ```bash
 git clone https://github.com/gnipbao/story-to-handdrawn-video.git
 cd story-to-handdrawn-video
 npm ci
 npm run check
-```
 
-2. Install the skill into your agent's skills directory:
-
-```bash
-# Codex
+# 安装到 Codex；其他 Agent 请使用其实际 skills 目录
 cp -R skill-package/story-to-handdrawn-video ~/.codex/skills/
 
-# Claude Code / generic agents
-cp -R skill-package/story-to-handdrawn-video ~/.claude/skills/
-
-# Kimi Code
-cp -R skill-package/story-to-handdrawn-video ~/.agents/skills/
-```
-
-3. Point the skill at the renderer project (skip when the agent runs inside it):
-
-```bash
+# 在项目外调用时，指定渲染器位置
 export STORY_VIDEO_PROJECT=/absolute/path/to/story-to-handdrawn-video
 ```
 
-### Usage (Codex skill examples)
-
-Everything is driven in natural language; sentence splitting, storyboarding, image generation, import, and rendering are handled by the agent per the skill contract.
-
-Story text → animation (the skill's default prompt):
+然后在 Agent 中输入：
 
 ```text
-使用 $story-to-handdrawn-video 把这段故事生成可后期配音的手绘动画。
-
-<paste your story here>
+使用 $story-to-handdrawn-video，把下面的故事生成手绘动画，先给我预览版：
+小猫坐在窗边。小鸟停在枝头。
 ```
 
-Ordered images → animation:
+Agent 会规划分镜、生成角色参考和每页母图、检查中文字、导入素材并渲染。未指定画风时，继续使用已锁定的「彩铅日记漫画」。默认不使用站酷马善政字体；文字本身就是生图工具绘制的画面资产。
+
+## 三种使用方式
+
+### 故事生成视频
 
 ```text
-使用 $story-to-handdrawn-video 把这几张图片按顺序生成手绘动画:
+使用 $story-to-handdrawn-video，把 /absolute/story.txt 做成手绘动画。
+选择 HS-128 四季旅行水彩，标题叫“纸上的夏天”，先出预览。
+```
+
+支持指定内置 ID、原有 1–20 编号、唯一名称或别名；新增风格用 `HS-001` 至 `HS-277`，配色用 `C-01` 至 `C-30`。故事原文保留，每个完整句子默认一个节拍。需要翻页时直接说“使用翻书效果”。
+
+### 已有图片生成视频
+
+```text
+使用 $story-to-handdrawn-video，按顺序把这些图片做成翻书动画：
 /absolute/01.jpg /absolute/02.jpg /absolute/03.jpg
 ```
 
-Page-flip effect (uploaded pages shown untouched, curled from the bottom-right corner):
+选择逐层绘制效果时，系统识别上方文字和下方插画，从彩色图派生对齐的黑白层。选择翻页时，完整保留母图及原文字，不拆分、不重新绘字。生成图片也遵循同一套处理原则。
+
+### 用参考图生成并收藏风格
 
 ```text
-使用 $story-to-handdrawn-video 把这些图片做成翻书效果的手绘动画:
-/absolute/01.jpg /absolute/02.jpg
+使用 $story-to-handdrawn-video，参考这张图的画风生成下面的故事。
+请把这个风格收藏为“旅行水彩”，方便以后使用。
 ```
 
-Preview first (720×960, before committing to a full render):
+Agent 看图解析线条、造型、配色、材质、构图和手写字特征，用这些特征绘制新故事。参考图里的原人物、原文字不会自动成为故事内容。提出收藏后，参考图和风格描述保存到项目 `.story-video/styles/`；后续可按名字或 `custom:<id>` 复用。个人风格不会进入公共目录或分享包。
 
-```text
-使用 $story-to-handdrawn-video 先给这个故事生成一个预览版。
-```
+纯 CLI 会准备视觉分析请求，不能自行看图；需要 Agent 完成分析后继续。格式与保存规则见 [参考图工作流](skill-package/story-to-handdrawn-video/references/reference-style-workflow.md)。
 
-Notes: one complete sentence per beat by default; Codex Image2 is the default image generator (the OpenAI API path is only used when explicitly requested and requires `OPENAI_API_KEY`); output is a silent picture track — voiceover and BGM are post-production.
+## 命令行入口
 
-### Built-in style library
-
-The samples below use the same characters, action, and composition so line work, material, palette, and finish can be compared directly. Samples are style evidence only; story text and the character lock still control scene content and identity.
-
-![20-style hand-drawn library](references/style-examples/handdrawn-style-library-contact-sheet.jpg)
-
-| # | Sample | Style id | English name | Best fit |
-|---:|:---:|---|---|---|
-| 1 | <a href="references/style-examples/01-colored-pencil-diary.png"><img src="references/style-examples/01-colored-pencil-diary.png" width="120" alt="Colored-pencil diary comic sample"></a> | `colored-pencil-diary` | Colored-pencil diary comic (default) | family, everyday life, documentary emotion |
-| 2 | <a href="references/style-examples/02-minimal-line-explainer.png"><img src="references/style-examples/02-minimal-line-explainer.png" width="120" alt="Minimal line explainer sample"></a> | `minimal-line-explainer` | Minimal line explainer | education, process, ideas |
-| 3 | <a href="references/style-examples/03-kid-crayon.png"><img src="references/style-examples/03-kid-crayon.png" width="120" alt="Kid crayon bad drawing sample"></a> | `kid-crayon` | Kid crayon bad drawing | childhood, parenting, light comedy |
-| 4 | <a href="references/style-examples/04-rawkid-crayon.png"><img src="references/style-examples/04-rawkid-crayon.png" width="120" alt="Raw family crayon card sample"></a> | `rawkid-crayon` | Raw family crayon card | family serials, warm daily moments |
-| 5 | <a href="references/style-examples/05-bean-doodle-infographic.png"><img src="references/style-examples/05-bean-doodle-infographic.png" width="120" alt="Bean doodle infographic sample"></a> | `bean-doodle-infographic` | Bean doodle infographic | steps, lists, knowledge cards |
-| 6 | <a href="references/style-examples/06-ms-paint-bad-doodle.png"><img src="references/style-examples/06-ms-paint-bad-doodle.png" width="120" alt="MS Paint bad doodle sample"></a> | `ms-paint-bad-doodle` | MS Paint bad doodle | satire, reversal, absurdity |
-| 7 | <a href="references/style-examples/07-ballpoint-scribble.png"><img src="references/style-examples/07-ballpoint-scribble.png" width="120" alt="Ballpoint scribble sketch sample"></a> | `ballpoint-scribble` | Ballpoint scribble sketch | portraits, animals, monologue |
-| 8 | <a href="references/style-examples/08-real-crayon-paper.png"><img src="references/style-examples/08-real-crayon-paper.png" width="120" alt="Real crayon paper sample"></a> | `real-crayon-paper` | Real crayon paper | child viewpoint, growth records |
-| 9 | <a href="references/style-examples/09-ink-wash.png"><img src="references/style-examples/09-ink-wash.png" width="120" alt="Expressive ink wash sample"></a> | `ink-wash` | Expressive ink wash | culture, fables, reflection |
-| 10 | <a href="references/style-examples/10-emotional-watercolor-sketch.png"><img src="references/style-examples/10-emotional-watercolor-sketch.png" width="120" alt="Emotional light-watercolor sketch sample"></a> | `emotional-watercolor-sketch` | Emotional light-watercolor sketch | memory, relationships, restrained documentary |
-| 11 | <a href="references/style-examples/11-retro-gouache-concept.png"><img src="references/style-examples/11-retro-gouache-concept.png" width="120" alt="Mid-century gouache concept sample"></a> | `retro-gouache-concept` | Mid-century gouache concept | nostalgia, cities, warm drama |
-| 12 | <a href="references/style-examples/12-sunlit-storybook.png"><img src="references/style-examples/12-sunlit-storybook.png" width="120" alt="Sunlit storybook sample"></a> | `sunlit-storybook` | Sunlit storybook vis-dev | healing stories, fairy tales, family |
-| 13 | <a href="references/style-examples/13-nordic-gouache-storybook.png"><img src="references/style-examples/13-nordic-gouache-storybook.png" width="120" alt="Nordic gouache storybook sample"></a> | `nordic-gouache-storybook` | Nordic gouache storybook | quiet daily life, nature, bedtime stories |
-| 14 | <a href="references/style-examples/14-inked-storybook.png"><img src="references/style-examples/14-inked-storybook.png" width="120" alt="Inked light-watercolor storybook sample"></a> | `inked-storybook` | Inked light-watercolor storybook | character scenes, youth, dialogue |
-| 15 | <a href="references/style-examples/15-warm-flat-storybook.png"><img src="references/style-examples/15-warm-flat-storybook.png" width="120" alt="Warm flat storybook sample"></a> | `warm-flat-storybook` | Warm flat storybook | relationships, branding, light education |
-| 16 | <a href="references/style-examples/16-naive-marker-notes.png"><img src="references/style-examples/16-naive-marker-notes.png" width="120" alt="Naive marker notes sample"></a> | `naive-marker-notes` | Naive marker notes | social posts, opinions, youth content |
-| 17 | <a href="references/style-examples/17-zine-riso-collage.png"><img src="references/style-examples/17-zine-riso-collage.png" width="120" alt="Zine risograph collage sample"></a> | `zine-riso-collage` | Zine risograph collage | growth, travel, music culture |
-| 18 | <a href="references/style-examples/18-organic-contour-doodle.png"><img src="references/style-examples/18-organic-contour-doodle.png" width="120" alt="Organic contour doodle sample"></a> | `organic-contour-doodle` | Organic contour doodle | lifestyle, food, brand stories |
-| 19 | <a href="references/style-examples/19-whiteboard-explainer.png"><img src="references/style-examples/19-whiteboard-explainer.png" width="120" alt="Whiteboard explainer sample"></a> | `whiteboard-explainer` | Whiteboard explainer | tutorials, business concepts, timelines |
-| 20 | <a href="references/style-examples/20-linocut-editorial.png"><img src="references/style-examples/20-linocut-editorial.png" width="120" alt="Linocut editorial sample"></a> | `linocut-editorial` | Linocut editorial | social issues, history, fables |
-
-List styles and their example paths:
+统一入口为 `scripts/run_story_video.py`；在 Agent 中使用 Skill 时无需手动执行这些步骤。
 
 ```bash
+# 默认 30 项、全部画风、分类与配色
 python3 scripts/run_story_video.py --list-styles
+python3 scripts/run_story_video.py --list-styles --all-styles
+python3 scripts/run_story_video.py --list-styles --category watercolor
+python3 scripts/run_story_video.py --list-styles --asset-type palette
+
+# 生成任务清单：下一步由 Agent 调用真实生图工具
+python3 scripts/run_story_video.py \
+  --input examples/story.txt --style HS-128 --palette C-01 --mode generate
+
+# 母图生成并检查完毕后，导入并出预览
+python3 scripts/run_story_video.py --mode import
+python3 scripts/run_story_video.py --mode preview
+
+# 上传图片可直接导入并渲染
+python3 scripts/run_story_video.py \
+  --images /absolute/01.jpg /absolute/02.jpg --transition page-flip --mode preview
 ```
 
-Select a style by order, id, Chinese name, English name, or alias:
+`--mode plan` 只规划；`--mode generate` 在默认 Codex 路径中只准备生图任务，尚未产出图片或视频。`--generator api` 仅在明确选择并配置 `OPENAI_API_KEY` 时使用。只有明确需要排版字体时才选择 `--text-mode font`，该模式使用系统字体且仅支持直接切换。
+
+## 成片与质量检查
+
+| 输入 | 720×960 预览 | 1080×1440 正式成片 |
+| --- | --- | --- |
+| 故事文本 | `out/picture_silent-preview.mp4` | `out/picture_silent.mp4` |
+| 上传图片 | `out/uploaded_picture_silent-preview.mp4` | `out/uploaded_picture_silent.mp4` |
+
+输出为 30 fps、H.264 静音 MP4。默认不生成配音或音乐，供后期剪辑使用。
+
+每张母图需检查中文字、角色连续性和四周留白。裁切按实际文字与插画的分隔识别；模型未严格遵守提示中的像素位置时，不机械沿固定坐标切图。无法可靠分离的生成母图需要修图或重生成。详见 [素材处理规则](skill-package/story-to-handdrawn-video/references/asset-workflow.md)。
 
 ```bash
-python3 scripts/run_story_video.py \
-  --input examples/story.txt \
-  --title "Paper Summer" \
-  --style ink-wash \
-  --mode plan
+npm run check              # 类型、资产库可复现性、流程测试、历史分镜结构
+npm run build              # Remotion 生产构建
+npm run check:storyboard   # 严格验证当前分镜引用的真实素材
+npm run styles:build       # 从固定数据与本地图片重建资产库及目录
+npm run dev                # Remotion Studio
+npm run package:share      # 校验后打包源码、Skill、内置图库与许可
 ```
 
-The machine-readable recipes live in [references/handdrawn-style-library.json](references/handdrawn-style-library.json). Its `contact_sheet` points to the overview and each `example_image` points to an individual sample. Recipes adapted from [hand-drawn-styles](https://github.com/threerocks/hand-drawn-styles) retain MIT attribution in [references/handdrawn-styles-LICENSE.txt](references/handdrawn-styles-LICENSE.txt).
+新检出的仓库不包含历史生成素材，所以 `check:storyboard` 需要先导入当前项目的图片；每个渲染命令也会自动执行对应素材校验。自动化测试使用隔离样本，视觉质量通过真实生图和成片回看单独验证：[327 项标准配图回测](examples/standard-preview-report.md)、[手写文字与视频回测](examples/replay-report.md)、[维护回测提示词](examples/regression-prompts.md)。
 
-### Outputs
+## 项目结构
 
-| Input | Mode | Path |
-| --- | --- | --- |
-| Story text | final | `out/picture_silent.mp4` |
-| Story text | preview | `out/picture_silent-preview.mp4` |
-| Uploaded images | final | `out/uploaded_picture_silent.mp4` |
-| Uploaded images | preview | `out/uploaded_picture_silent-preview.mp4` |
+| 路径 | 用途 |
+| --- | --- |
+| [`skill-package/story-to-handdrawn-video/`](skill-package/story-to-handdrawn-video/SKILL.md) | Skill 行为约定、便携入口与按需加载说明 |
+| [`src/`](src/) | Remotion 场景、擦除动效、翻页组件 |
+| [`scripts/`](scripts/) | 分镜、风格查询、导入、校验、打包 |
+| [`references/style-library.html`](references/style-library.html) | 离线风格目录 |
+| [`references/handdrawn-style-library.json`](references/handdrawn-style-library.json) | 机器可读的 327 项资产 |
+| [`references/style-examples/`](references/style-examples/) | 全部本地示意图 |
+| [`examples/`](examples/) | 示例故事、维护用例与回测记录 |
+| `.story-video/`、`out/` | 私有风格及本地输出，不进入源码分享包 |
 
-Final 1080×1440, preview 720×960, H.264, silent. The full behavior contract lives in [SKILL.md](skill-package/story-to-handdrawn-video/SKILL.md).
+## English
 
-### License
+Turn Chinese stories or ordered local pages into silent, vertical hand-drawn videos with Remotion. The default workflow generates exact handwritten captions together with the art, then reveals text, locally derived grayscale art, and color. Page flips preserve the complete original page.
 
-[MIT](LICENSE). The bundled Ma Shan Zheng font is under the [SIL Open Font License](public/fonts/OFL-MaShanZheng.txt).
+The offline library includes **297 style recipes and 30 palettes**, all with local previews, plus a curated 30-style default menu. Reference images can be analyzed by the Agent and saved privately for reuse. Every preview uses the same grandmother-and-child bridge scene, generated for this project so that styles and palettes can be compared consistently.
+
+Watch the [45-second page-flip showcase](https://github.com/gnipbao/story-to-handdrawn-video/raw/refs/heads/main/examples/style-showcase/handdrawn-styles-75-page-flip-45s-bgm.mp4): 75 styles across 11 categories at 1080×1440 / 30 fps. Background music was added in post-production; see the [music credit](examples/style-showcase/BGM_CREDITS.md).
+
+Install the renderer with `npm ci`, copy `skill-package/story-to-handdrawn-video` to your Agent's skills directory, and set `STORY_VIDEO_PROJECT` if needed. Ask the Skill to generate a preview from a story or ordered images. Exports are silent H.264 at 720×960 or 1080×1440. See the [Skill](skill-package/story-to-handdrawn-video/SKILL.md), [offline catalog](references/style-library.html), and [retest report](examples/replay-report.md) for workflow details and verified scope.
+
+## 参考与许可
+
+画风整理参考 [handraw-style](https://github.com/yang0/handraw-style) 与 [hand-drawn-styles](https://github.com/threerocks/hand-drawn-styles)。标准配图由本项目统一生成。代码采用 [MIT](LICENSE)，相关文字资料的署名和许可保留于 [扩展资料许可](references/vendor/yang0-handraw-style/LICENSE) 与 [原有资料许可](references/handdrawn-styles-LICENSE.txt)。

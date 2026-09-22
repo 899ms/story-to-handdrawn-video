@@ -63,7 +63,7 @@ const PageFlipScene: React.FC<{
   ].join(' ');
 
   return (
-    <AbsoluteFill style={{backgroundColor: '#fff', overflow: 'hidden'}}>
+    <AbsoluteFill style={{overflow: 'hidden'}}>
       <svg
         width="0"
         height="0"

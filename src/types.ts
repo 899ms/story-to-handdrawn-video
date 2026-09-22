@@ -37,6 +37,8 @@ export type Storyboard = {
     fps: number;
     transition?: 'cut' | 'page-flip';
     transition_sec?: number;
+    text_mode?: 'image2' | 'font';
+    palette_id?: string | null;
     style_lock: string;
     character_lock: string;
     audio: {

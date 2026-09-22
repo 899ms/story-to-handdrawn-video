@@ -14,3 +14,8 @@ uploaded-pages.json
 *.zip
 .DS_Store
 .npm-cache/
+
+# Private reference profiles, images and local evolution evidence
+.story-video/
+.dao/
+.media/

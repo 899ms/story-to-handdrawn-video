@@ -1,6 +1,6 @@
 {
   "name": "story-to-handdrawn-video",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Turn Chinese stories or uploaded comic pages into silent hand-drawn Remotion videos.",
   "license": "MIT",
   "repository": {
@@ -23,9 +23,18 @@
     "render:preview": "remotion render src/index.ts PictureSilent out/picture_silent-preview.mp4 --codec=h264 --crf=23 --pixel-format=yuv420p --muted --scale=0.6666666666666666 --concurrency=1",
     "render:uploaded": "remotion render src/index.ts UploadedPictureSilent out/uploaded_picture_silent.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --muted --concurrency=1",
     "render:uploaded:preview": "remotion render src/index.ts UploadedPictureSilent out/uploaded_picture_silent-preview.mp4 --codec=h264 --crf=23 --pixel-format=yuv420p --muted --scale=0.6666666666666666 --concurrency=1",
-    "check": "npm run check:types && npm run check:storyboard",
+    "check": "npm run check:types && npm run check:styles && npm test && npm run check:storyboard:schema",
     "check:types": "tsc --noEmit",
-    "check:storyboard": "node scripts/validate-storyboard.mjs storyboard.json storyboard.uploaded.json"
+    "check:storyboard": "node scripts/validate-storyboard.mjs storyboard.json storyboard.uploaded.json",
+    "styles:build": "node scripts/build-style-library.mjs && node scripts/build-style-gallery.mjs",
+    "style:reference": "node scripts/reference-style.mjs",
+    "check:styles": "node scripts/build-style-library.mjs --check && node scripts/build-style-gallery.mjs --check",
+    "test": "node --test tests/*.test.mjs",
+    "check:storyboard:schema": "node scripts/validate-storyboard.mjs --schema-only storyboard.json storyboard.uploaded.json",
+    "prerender": "node scripts/validate-storyboard.mjs storyboard.json",
+    "prerender:preview": "node scripts/validate-storyboard.mjs storyboard.json",
+    "prerender:uploaded": "node scripts/validate-storyboard.mjs storyboard.uploaded.json",
+    "prerender:uploaded:preview": "node scripts/validate-storyboard.mjs storyboard.uploaded.json"
   },
   "dependencies": {
     "@remotion/cli": "4.0.487",

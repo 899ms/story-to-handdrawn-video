@@ -3,7 +3,8 @@ import {dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const files = process.argv.slice(2);
+const schemaOnly = process.argv.includes('--schema-only');
+const files = process.argv.slice(2).filter((arg) => arg !== '--schema-only');
 const storyboardFiles = files.length > 0
   ? files
   : ['storyboard.json', 'storyboard.uploaded.json'];
@@ -78,6 +79,12 @@ const validate = (file) => {
     const hasText = scene.layers.includes('text');
     const illustrated = scene.layers.includes('bw_full');
     const colorIndex = scene.layers.indexOf('color');
+    if (project.text_mode === 'image2' && project.transition !== 'page-flip' && hasText && !scene.assets.text_image) {
+      errors.push(`${label}: generated handwriting requires a text_image; no automatic font fallback`);
+    }
+    if (scene.shot === 'full_generated_page' && (scene.text || scene.assets.text_image || scene.assets.bw || scene.layers.join(',') !== 'color')) {
+      errors.push(`${label}: page-flip must preserve only the complete generated master`);
+    }
     if ((scene.text || scene.assets.text_image) && !hasText) {
       errors.push(`${label}: text content requires a text layer`);
     }
@@ -101,6 +108,7 @@ const validate = (file) => {
         continue;
       }
       if (!path) continue;
+      if (schemaOnly) continue;
       const absolute = resolve(root, 'public', path);
       if (!existsSync(absolute)) {
         errors.push(`${label}: missing ${key} asset at public/${path}`);
@@ -144,4 +152,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log('✓ all storyboards valid · silent picture tracks');
+console.log(schemaOnly ? '✓ storyboard schemas valid · asset existence NOT checked (use npm run check:storyboard before rendering)' : '✓ all storyboards valid · silent picture tracks');
